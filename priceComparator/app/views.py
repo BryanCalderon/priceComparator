@@ -1,18 +1,25 @@
 from django.contrib.auth.models import User, Group
+from django.core import serializers
 from django.http import JsonResponse, HttpResponse
-# Create your views here.
 from rest_framework import viewsets, permissions
 
+from .common import storeCrawler
 from .serializer import UserSerializer, GroupSerializer
+
+crawlers = ['product_page_alkosto', 'product_page_exito']
 
 
 def index(request):
     return HttpResponse("Hello, world. You're at the APP index.")
 
 
-def hola(request, nombre):
-    print(request.method)
-    return HttpResponse(str.format("HOLA {}!!!!!", nombre))
+def search_products(request, filter):
+    post_list = []
+    for crawler in crawlers:
+        class_ = storeCrawler.get_product_page_store(crawler)
+        data = class_().search_products(search=filter)
+        post_list.append(serializers.serialize('json', data))
+    return HttpResponse(post_list, content_type="application/json")
 
 
 def page(request, num):
