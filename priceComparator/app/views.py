@@ -4,7 +4,8 @@ from django.http import JsonResponse, HttpResponse
 from rest_framework import viewsets, permissions
 
 from .common import storeCrawler
-from .serializer import UserSerializer, GroupSerializer
+from .models import Product
+from .serializer import UserSerializer, GroupSerializer, ProductsSerializer
 
 crawlers = ['product_page_alkosto', 'product_page_exito']
 
@@ -16,8 +17,8 @@ def index(request):
 def search_products(request, filter):
     post_list = []
     for crawler in crawlers:
-        class_ = storeCrawler.get_product_page_store(crawler)
-        data = class_().search_products(search=filter)
+        crawler_class = storeCrawler.get_product_page_store(crawler)
+        data = crawler_class().search_products(search=filter)
         post_list.append(serializers.serialize('json', data))
     return HttpResponse(post_list, content_type="application/json")
 
@@ -43,3 +44,11 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class ProductViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows products to be viewed or edited.
+    """
+    queryset = Product.objects.all()
+    serializer_class = ProductsSerializer

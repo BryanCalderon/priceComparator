@@ -31,6 +31,7 @@ class WebCrawler(ProductScraperInterface):
                 i += 1
 
     def search_products(self, search):
+        search = search.replace(" ", "+")
         self.connect_wit_retries(self.url.format(search))
         elements = self.get_product_elements()
         products = []

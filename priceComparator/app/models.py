@@ -1,18 +1,16 @@
 from django.db import models
 
 
-# Create your models here.
-
 class Product(models.Model):
     sku = models.CharField(max_length=30)
-    name = models.CharField(max_length=100)
-    image = models.CharField(max_length=100)
-    status = models.IntegerField()
-    url = models.CharField(max_length=100)
-    brand = models.CharField(max_length=50)
-    model = models.CharField(max_length=50)
+    name = models.CharField(max_length=200)
+    image = models.CharField(max_length=455)
+    status = models.BooleanField(default=True)
+    url = models.CharField(max_length=455)
+    brand = models.CharField(max_length=50, null=True)
+    model = models.CharField(max_length=50, null=True)
     price = models.FloatField(max_length=30)
-    normal_price = models.FloatField(max_length=30)
-    offer_price = models.FloatField(max_length=30)
-    creation_date = models.DateField()
-    update_date = models.DateField()
+    normal_price = models.FloatField(max_length=30, null=True)
+    offer_price = models.FloatField(max_length=30, null=True)
+    creation_date = models.DateTimeField(auto_now_add=True, null=True)
+    update_date = models.DateTimeField(auto_now=True, null=True)
