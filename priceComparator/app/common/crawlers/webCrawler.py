@@ -3,6 +3,7 @@ from abc import abstractmethod
 
 import requests
 from bs4 import BeautifulSoup, element, ResultSet
+from django.utils.timezone import now
 from urllib3.exceptions import HTTPError
 
 from ...interfaces.productScraperInterface import ProductScraperInterface
@@ -46,10 +47,21 @@ class WebCrawler(ProductScraperInterface):
             product.offer_price = self.get_offer_price(product_element)
             product.normal_price = self.get_normal_price(product_element)
             product.url = self.get_url(product_element)
-            product.price = min(product.offer_price, product.normal_price)
+            product.price = self.get_min_price(product.offer_price, product.normal_price)
+            product.update_date = now()
             products.append(product)
 
         return products
+
+    def get_min_price(self, price_1, price_2):
+        if price_1 is not None and price_2 is not None:
+            return min(price_1, price_2)
+        elif price_1 is not None:
+            return price_1
+        elif price_2 is not None:
+            return price_2
+
+        return None
 
     @abstractmethod
     def get_product_elements(self) -> ResultSet:

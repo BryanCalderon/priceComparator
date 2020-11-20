@@ -25,10 +25,20 @@ class product_page_alkosto(WebCrawler):
         return json_script.get('brand')
 
     def get_normal_price(self, product_element: element) -> float:
-        return float(self.parse_price(product_element.select_one(".price-box .old-price span.price-old").text))
+        priceStr = product_element.select_one(".price-box .old-price span.price-old")
+        if priceStr is None:
+            priceStr = product_element.select_one(".price-box .regular-price span.price")
+
+        if priceStr:
+            return float(self.parse_price(priceStr.text))
+
+        return None
 
     def get_offer_price(self, product_element: element) -> float:
-        return float(self.parse_price(product_element.select_one(".price-box p.special-price span.price").text))
+        priceStr = product_element.select_one(".price-box p.special-price span.price")
+        if priceStr:
+            return float(self.parse_price(priceStr.text))
+        return None
 
     def get_image(self, product_element: element) -> str:
         return product_element.find("img")['src']

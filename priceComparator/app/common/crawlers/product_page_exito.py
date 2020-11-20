@@ -45,7 +45,6 @@ class product_page_exito(WebCrawlerJson):
             for seller in sellers:
                 if seller['sellerDefault']:
                     price = seller['commertialOffer'][type_price]
-            print(price)
         return price
 
     def get_image_from_json(self, json_product):
