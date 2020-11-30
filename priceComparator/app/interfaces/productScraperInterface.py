@@ -1,3 +1,6 @@
+from ..models import Product
+
+
 class ProductScraperInterface:
 
     def connect(self, url: str):
@@ -6,5 +9,5 @@ class ProductScraperInterface:
     def connect_wit_retries(self, url: str):
         pass
 
-    def search_products(self, search: str) -> []:
+    def extract_product(self, product: Product) -> Product:
         pass

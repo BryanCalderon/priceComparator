@@ -3,14 +3,10 @@ from abc import abstractmethod
 
 import requests
 
-from .webCrawler import WebCrawler
+from .productListWebCrawler import ProductListWebCrawler
 
 
-# URL_PRODUCT_PAGE = "/api/catalog_system/pub/products/search?fq=skuId:59870"
-# URL_SEARCH = "/api/catalog_system/pub/products/search/?ft=tv%20lg%2055&_from=0&_to=9&sc=2&O=OrderByScoreDESC"
-# URL_MENULINK = "/api/catalog_system/pub/products/search/?&fq=C%3a%2f679%2f687%2f776%2f&fq=C%3a%2f679%2f687%2f776%2f&sc="
-
-class WebCrawlerJson(WebCrawler):
+class ProductListWebCrawlerJson(ProductListWebCrawler):
 
     def connect(self, url):
         page = requests.get(url)

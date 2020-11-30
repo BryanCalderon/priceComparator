@@ -3,10 +3,10 @@ import re
 
 from bs4 import element
 
-from .webCrawler import WebCrawler
+from ...productListWebCrawler import ProductListWebCrawler
 
 
-class product_page_alkosto(WebCrawler):
+class product_list_alkosto(ProductListWebCrawler):
     url = "https://www.alkosto.com/salesperson/result/?q={}"
 
     def get_product_elements(self):

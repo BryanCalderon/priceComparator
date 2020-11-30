@@ -1,11 +1,15 @@
+from datetime import datetime
+
+import dateutil.parser
+from django.forms import model_to_dict
 from django.http import JsonResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .common import storeCrawler
-from .models import Product, Store, User
-from .serializer import ProductsSerializer, StoreSerializer, UserSerializer
+from .common import importerStoreCrawler
+from .models import Product, Store, User, TypePrice, ProductPrice
+from .serializer import ProductsSerializer, StoreSerializer, UserSerializer, TypePriceSerializer, ProductPriceSerializer
 
 
 class ProductViewSet(viewsets.ModelViewSet):
@@ -17,7 +21,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='by_user/(?P<user_pk>[^/.]+)')
     def get_by_user(self, request, user_pk=None):
-        ps = Product.objects.filter(user=user_pk, status=True)
+        ps = Product.objects.filter(user=user_pk, status=True).order_by("creation_date")
         serializer = ProductsSerializer(ps, many=True, context={'request': request})
         return Response(serializer.data)
 
@@ -27,42 +31,67 @@ class ProductViewSet(viewsets.ModelViewSet):
         store_serializer = StoreSerializer(stores, many=True)
         post_list = []
         for store in store_serializer.data:
-            crawler_class = storeCrawler.get_product_page_store(store['crawler'])
+            crawler_class = importerStoreCrawler.get_product_list_class(store['name'])
             data = crawler_class().search_products(search=filter_pk)
             post_list.append({'store': store['name'], 'data': ProductsSerializer(data, many=True).data})
-        return JsonResponse(post_list, content_type="application/json", safe=False)
+        return JsonResponse(post_list, safe=False)
 
-    @action(detail=False, methods=['get'], url_path='(?P<pk>[^/.]+)/search_and_save/(?P<filter_pk>[^/.]+)')
-    def search_and_save(self, request, pk=None, filter_pk=None):
-        stores = Store.objects.filter(status=True)
-        store_serializer = StoreSerializer(stores, many=True)
-        product_parent = Product.objects.filter(id=pk).first()
-        post_list = []
-        for store in store_serializer.data:
-            crawler_class = storeCrawler.get_product_page_store(store['crawler'])
-            data = crawler_class().search_products(search=filter_pk)
-            products = ProductsSerializer(data, many=True).data
-            for prod in products:
-                product_existente: Product = Product.objects.filter(store=store['id'], sku=prod['sku']).first()
-                if product_existente:
-                    product_existente.price = prod['price']
-                    product_existente.normal_price = prod['normal_price']
-                    product_existente.offer_price = prod['offer_price']
-                    product_existente.url = prod['url']
-                    product_existente.model = prod['model']
-                    if product_existente.related_to is None:
-                        product_existente.related_to = product_parent
-                    if product_existente.store is None:
-                        product_existente.store = Store(**store)
-                    product_existente.save()
+    @action(detail=False, methods=['get'], url_path='(?P<pk>[^/.]+)/find_related')
+    def find_related(self, request, pk=None):
+        main_product: Product = Product.objects.filter(id=pk).first()
+        main_product.save(update_fields=['updated_date'])
+        products_serializer = ProductsSerializer(Product.objects.filter(related_to=pk), many=True, context={'request': request}).data
+        list_products = []
+        if products_serializer:
+            for product in products_serializer:
+                if dateutil.parser.isoparse(product['updated_date']).day < datetime.today().day:
+                    product['store'] = Store(**product['store'])
+                    product['related_to'] = main_product
+                    child = Product(**product)
+                    crawler_class = importerStoreCrawler.get_product_page_class(child.store.name)
+                    crawler_class().extract_product(child)
+                    child.refresh_from_db()
+                    if child.normal_price:
+                        ProductPrice(producto=child, price=child.normal_price, type=TypePrice(id=1)).save()
+                    if child.offer_price:
+                        ProductPrice(producto=child, price=child.offer_price, type=TypePrice(id=2)).save()
+                    dict_obj = model_to_dict(child)
+                    dict_obj['store'] = child.store.name
+                    list_products.append(dict_obj)
                 else:
-                    child = Product(**prod)
-                    child.related_to = product_parent
-                    child.store = Store(**store)
-                    child.save()
+                    product['store'] = product['store']['name']
+                    list_products.append(product)
+        else:
+            stores = Store.objects.filter(status=True)
+            store_serializer = StoreSerializer(stores, many=True).data
+            for store in store_serializer:
+                crawler_class = importerStoreCrawler.get_product_list_class(store['name'])
+                data = crawler_class().search_products(search=main_product.sku)
+                products = ProductsSerializer(data, many=True).data
+                if not products:
+                    data = crawler_class().search_products(search=main_product.name)
+                    products = ProductsSerializer(data, many=True).data
 
-            post_list.append({'store': store['name'], 'data': products})
-        return JsonResponse(post_list, content_type="application/json", safe=False)
+                store_instance = Store(**store)
+
+                for item in products:
+                    item['store'] = store_instance
+                    item['related_to'] = main_product
+                    product_instance = Product(**item)
+                    product_instance.save()
+                    product_instance.refresh_from_db()
+                    if product_instance.normal_price:
+                        ProductPrice(producto=product_instance, price=product_instance.normal_price,
+                                     type=TypePrice(id=1)).save()
+                    if product_instance.offer_price:
+                        ProductPrice(producto=product_instance, price=product_instance.offer_price,
+                                     type=TypePrice(id=2)).save()
+                    dict_obj = model_to_dict(product_instance)
+                    dict_obj['store'] = product_instance.store.name
+                    list_products.append(dict_obj)
+
+        list_products.sort(key=lambda x: x.get('price'))
+        return JsonResponse(list_products, safe=False)
 
 
 class StoreViewSet(viewsets.ModelViewSet):
@@ -89,3 +118,34 @@ class UserViewSet(viewsets.ModelViewSet):
         else:
             return Response({'message': 'Client with UID {} not found'.format(uid_pk)},
                             status=status.HTTP_404_NOT_FOUND)
+
+
+class TypePriceViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows TypePrices to be viewed or edited.
+    """
+    queryset = TypePrice.objects.all()
+    serializer_class = TypePriceSerializer
+
+
+class ProductPriceViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows TypePrices to be viewed or edited.
+    """
+    queryset = ProductPrice.objects.all()
+    serializer_class = ProductPriceSerializer
+
+    @action(detail=False, methods=['get'], url_path='by_parent/(?P<id_pk>[^/.]+)')
+    def by_parent(self, request, id_pk):
+        types = TypePriceSerializer(TypePrice.objects.all(), many=True, context={'request': request}).data
+        result = []
+
+        for item_type in types:
+            prices: [] = ProductPriceSerializer(ProductPrice.objects.filter(producto=id_pk, type=item_type['id']), many=True, context={'request': request}).data
+            if prices:
+                result.append({
+                    'serie': item_type['descripcion'],
+                    'datos': list(map(lambda x: x['price'], prices)),
+                    'label': list(map(lambda x: x['created'], prices))
+                })
+        return JsonResponse(result, safe=False)

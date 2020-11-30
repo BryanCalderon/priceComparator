@@ -1,10 +1,11 @@
 import json
 
-from .webCrawlerJson import WebCrawlerJson
+from ... import utils
+from ...ProductListWebCrawlerJson import ProductListWebCrawlerJson
 
 
-class product_page_exito(WebCrawlerJson):
-    url = "https://www.exito.com/api/catalog_system/pub/products/search/?ft={}&_from=0&_to=3&sc=2&O=OrderByScoreDESC"
+class product_list_exito(ProductListWebCrawlerJson):
+    url = "https://www.exito.com/api/catalog_system/pub/products/search/?ft={}&_from=0&_to=30&sc=2&O=OrderByScoreDESC"
 
     def get_product_elements(self):
         return self.json
@@ -19,10 +20,18 @@ class product_page_exito(WebCrawlerJson):
         return json_product.get('brand')
 
     def get_normal_price(self, json_product: json) -> float:
-        return self.get_value_seller(json_product, 'ListPrice')
+        normal_price = self.get_value_seller(json_product, 'ListPrice')
+        if normal_price and normal_price < 4000:
+            trm = utils.get_trm()
+            normal_price = float("{:.2f}".format(trm * normal_price))
+        return normal_price
 
     def get_offer_price(self, json_product: json) -> float:
-        return self.get_value_seller(json_product, 'Price')
+        offer_price = self.get_value_seller(json_product, 'Price')
+        if offer_price and offer_price < 4000:
+            trm = utils.get_trm()
+            offer_price = float("{:.2f}".format(trm * offer_price))
+        return offer_price
 
     def get_image(self, json_product: json) -> str:
         return self.get_image_from_json(json_product)
