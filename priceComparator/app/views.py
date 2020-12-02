@@ -44,7 +44,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         list_products = []
         if products_serializer:
             for product in products_serializer:
-                if dateutil.parser.isoparse(product['updated_date']).day < datetime.today().day:
+                if dateutil.parser.isoparse(product['updated_date']).date() < datetime.today().date():
                     product['store'] = Store(**product['store'])
                     product['related_to'] = main_product
                     child = Product(**product)
@@ -141,7 +141,8 @@ class ProductPriceViewSet(viewsets.ModelViewSet):
         result = []
 
         for item_type in types:
-            prices: [] = ProductPriceSerializer(ProductPrice.objects.filter(producto=id_pk, type=item_type['id']), many=True, context={'request': request}).data
+            prices: [] = ProductPriceSerializer(ProductPrice.objects.filter(producto=id_pk, type=item_type['id']),
+                                                many=True, context={'request': request}).data
             if prices:
                 result.append({
                     'serie': item_type['descripcion'],
